@@ -1,0 +1,90 @@
+services:
+  api:
+    build:
+      context: ./saleor-api
+      dockerfile: Dockerfile
+    depends_on:
+      db:
+        condition: service_started
+      redis:
+        condition: service_started
+    environment:
+      ALLOWED_HOSTS: localhost,api,dashboard
+      DATABASE_URL: postgres://user:password@db:5432/saleor
+      SECRET_KEY: dummy
+      STATIC_URL: /static/
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      timeout: 10s
+      interval: 30s
+      retries: 3
+    ports:
+      - "8000:8000"
+    volumes:
+      - saleor-media:/app/media
+
+  db:
+    image: postgres:15-alpine
+    environment:
+      POSTGRES_DB: saleor
+      POSTGRES_USER: user
+      POSTGRES_PASSWORD: password
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -d $${POSTGRES_DB} -U $${POSTGRES_USER}"]
+      timeout: 10s
+      interval: 30s
+      retries: 3
+    ports:
+      - "5432:5432"
+    volumes:
+      - saleor-db:/var/lib/postgresql/data
+      - ./init/replica_user.sql:/docker-entrypoint-initdb.d/replica_user.sql
+    restart: unless-stopped
+
+  redis:
+    image: redis:7.0-alpine
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      timeout: 10s
+      interval: 30s
+      retries: 3
+    ports:
+      - "6379:6379"
+    volumes:
+      - saleor-redis:/data
+    restart: unless-stopped
+
+  rabbitmq:
+    image: rabbitmq:3-management
+    ports:
+      - "5672:5672"  # RabbitMQ default port
+      - "15672:15672"  # Management UI
+    environment:
+      RABBITMQ_DEFAULT_USER: guest
+      RABBITMQ_DEFAULT_PASS: guest
+    restart: unless-stopped
+
+  worker:
+    build:
+      context: ./saleor-api
+      dockerfile: Dockerfile
+    command: celery -A saleor worker --loglevel=info
+    depends_on:
+      - db
+      - redis
+      - rabbitmq  # Add RabbitMQ as a dependency
+    environment:
+      DATABASE_URL: postgres://user:password@db:5432/saleor
+      REDIS_URL: redis://redis:6379/0
+      BROKER_URL: amqp://guest:guest@rabbitmq:5672//  # Connect to RabbitMQ
+    volumes:
+      - saleor-media:/app/media
+
+volumes:
+  saleor-db:
+  saleor-media:
+  saleor-redis:
+
+networks:
+  saleor-backend-tier:
+    driver: bridge
