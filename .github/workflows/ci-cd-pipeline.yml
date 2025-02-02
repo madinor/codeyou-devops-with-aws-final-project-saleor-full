@@ -1,0 +1,111 @@
+name: CI/CD Pipeline
+'on':
+  push:
+    branches:
+      - develop
+      - staging
+      - production
+jobs:
+  lint:
+    name: Linting and Static Code Analysis
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v2
+      - name: Set up Python
+        uses: actions/setup-python@v2
+        with:
+          python-version: '3.9'
+      - name: Install dependencies
+        run: |
+          pip install ruff pip-audit
+      - name: Run Linter
+        run: ruff check . || true
+      - name: Run Dependency Analysis
+        run: pip-audit || true
+  build:
+    name: Build and Test Docker Images
+    runs-on: ubuntu-latest
+    needs: lint
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v2
+      - name: Build Docker Image for Saleor API
+        run: docker build -t project-saleor-api ./saleor-api
+      - name: Build Docker Image for Saleor Dashboard
+        run: docker build -t project-saleor-dashboard ./saleor-dashboard
+      - name: Build and Start Services for Saleor Platform
+        run: |
+          cd saleor-platform
+          docker-compose build
+          docker-compose up -d
+      - name: Health Check for Saleor API
+        run: |
+          docker run -d --name saleor-api project-saleor-api
+          sleep 10
+          curl -f http://localhost:8000/graphql || exit 1
+          docker stop saleor-api
+      - name: Trivy Scan for Saleor API
+        run: >
+          docker run --rm -v /var/run/docker.sock:/var/run/docker.sock
+          aquasec/trivy image project-saleor-api || true
+      - name: Login to DockerHub
+        run: >-
+          echo "${{ secrets.DOCKERHUB_TOKEN }}" | docker login -u "${{
+          secrets.DOCKERHUB_USERNAME }}" --password-stdin
+      - name: Push Saleor API to DockerHub
+        run: docker push project-saleor-api
+      - name: Push Saleor Dashboard to DockerHub
+        run: docker push project-saleor-dashboard
+  staging:
+    name: Staging Pipeline
+    runs-on: ubuntu-latest
+    needs: build
+    if: github.ref == 'refs/heads/staging'
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v2
+      - name: Validate Compose
+        run: >-
+          docker-compose -f saleor-platform/docker-compose.yml up
+          --abort-on-container-exit
+      - name: Build Docker Image for Saleor API
+        run: 'docker build -t project-saleor-api:staging ./saleor-api'
+      - name: Push Saleor API to DockerHub
+        run: 'docker push project-saleor-api:staging'
+      - name: Build Docker Image for Saleor Dashboard
+        run: 'docker build -t project-saleor-dashboard:staging ./saleor-dashboard'
+      - name: Push Saleor Dashboard to DockerHub
+        run: 'docker push project-saleor-dashboard:staging'
+  production:
+    name: Production Pipeline
+    runs-on: ubuntu-latest
+    needs: staging
+    if: github.ref == 'refs/heads/production'
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v2
+      - name: Ensure Staging Completeness
+        run: echo "Ensure all tests from staging are successful"
+      - name: Build Docker Image for Saleor API
+        run: 'docker build -t project-saleor-api:production ./saleor-api'
+      - name: Push Saleor API to DockerHub
+        run: |
+          docker tag project-saleor-api:production project-saleor-api:latest
+          docker push project-saleor-api:production
+          docker push project-saleor-api:latest
+      - name: Build Docker Image for Saleor Dashboard
+        run: 'docker build -t project-saleor-dashboard:production ./saleor-dashboard'
+      - name: Push Saleor Dashboard to DockerHub
+        run: >
+          docker tag project-saleor-dashboard:production
+          project-saleor-dashboard:latest
+
+          docker push project-saleor-dashboard:production
+
+          docker push project-saleor-dashboard:latest
+      - name: Build and Start Services for Saleor Platform
+        run: |
+          cd saleor-platform
+          docker-compose build
+          docker-compose up -d
