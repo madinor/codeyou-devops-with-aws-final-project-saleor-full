@@ -48,7 +48,7 @@ jobs:
           docker-compose up -d
       - name: Health Check for Saleor API
         run: |
-          docker run -d -p 8000:8000 --name saleor-api project-saleor-api
+          docker run -d -p 8001:8000 --name saleor-api project-saleor-api
           sleep 30
           curl -f http://localhost:8000/graphql || exit 1
           docker stop saleor-api
