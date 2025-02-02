@@ -31,6 +31,12 @@ jobs:
     steps:
       - name: Checkout code
         uses: actions/checkout@v2
+        
+      - name: Install Docker Compose
+        run: |
+          sudo sudo apt-get update
+          sudo apt-get install docker-compose -y
+
       - name: Build Docker Image for Saleor API
         run: docker build -t project-saleor-api ./saleor-api
       - name: Build Docker Image for Saleor Dashboard
