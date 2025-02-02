@@ -31,7 +31,7 @@ jobs:
     steps:
       - name: Checkout code
         uses: actions/checkout@v2
-        
+
       - name: Install Docker Compose
         run: |
           sudo sudo apt-get update
@@ -48,8 +48,8 @@ jobs:
           docker-compose up -d
       - name: Health Check for Saleor API
         run: |
-          docker run -d --name saleor-api project-saleor-api
-          sleep 10
+          docker run -d -p 8000:8000 --name saleor-api project-saleor-api
+          sleep 30
           curl -f http://localhost:8000/graphql || exit 1
           docker stop saleor-api
       - name: Trivy Scan for Saleor API
