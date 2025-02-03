@@ -51,6 +51,8 @@ jobs:
           docker run --rm -d -p 8001:8000 --name saleor-api project-saleor-api
           for i in {1..30}; do
             if curl -f http://localhost:8001/graphql; then
+              echo "Health check passed"
+              break
             fi
             sleep 2
           done
