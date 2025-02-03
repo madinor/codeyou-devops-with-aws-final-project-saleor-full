@@ -65,14 +65,18 @@ jobs:
       - name: Login to DockerHub
         run: |
           echo "${{ secrets.DOCKER_PASSWORD }}" | docker login -u "${{ secrets.DOCKER_USERNAME }}" --password-stdin
-      - name: Build Docker Image for Saleor API
-        run: docker build -t ${{ secrets.DOCKER_USERNAME }}/project-saleor-api ./saleor-api
+      - name: Build Docker Image for Saleor API and tag as latest
+        run: |
+          docker build -t ${{ secrets.DOCKER_USERNAME }}/project-saleor-api ./saleor-api
+          docker tag project-saleor-api:latest ${{ secrets.DOCKER_USERNAME }}/project-saleor-api:latest
       - name: Push Saleor API to DockerHub
-        run: docker push ${{ secrets.DOCKER_USERNAME }}/project-saleor-api
-      - name: Build Docker Image for Saleor dashboard
-        run: docker build -t ${{ secrets.DOCKER_USERNAME }}/project-saleor-dashboard ./saleor-dashboard
+        run: docker push ${{ secrets.DOCKER_USERNAME }}/project-saleor-api:latest
+      - name: Build Docker Image for Saleor dashboard and tag as latest
+        run: |
+          docker build -t ${{ secrets.DOCKER_USERNAME }}/project-saleor-dashboard ./saleor-dashboard
+          docker tag project-saleor-dashboard:latest ${{ secrets.DOCKER_USERNAME }}/project-saleor-dashboard:latest
       - name: Push Saleor Dashboard to DockerHub
-        run: docker push ${{ secrets.DOCKER_USERNAME }}/project-saleor-dashboard
+        run: docker push ${{ secrets.DOCKER_USERNAME }}/project-saleor-dashboard:latest
   staging:
     name: Staging Pipeline
     runs-on: ubuntu-latest
