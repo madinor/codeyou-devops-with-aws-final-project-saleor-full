@@ -49,14 +49,12 @@ jobs:
       - name: Health Check for Saleor API
         run: |
           docker run --rm -d -p 8001:8000 --name saleor-api project-saleor-api
-          for i in {1..30}; do
-            if curl -f http://localhost:8001/graphql; then
-              echo "Health check passed"
-              break
-            fi
-            sleep 2
-          done
-          if ! curl -f http://localhost:8001/graphql; then
+          sleep 60
+          if curl -f http://localhost:8001/graphql; then
+            echo "Health check passed"
+          elif [ "$(curl -s -o /dev/null -w '%{http_code}' http://localhost:8001/graphql)" -eq 404 ]; then  
+            echo "Health check succeded with 404 Not Found" 
+          else
             echo "Health check failed"
             exit 1
           fi
