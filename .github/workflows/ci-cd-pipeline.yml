@@ -13,21 +13,27 @@ jobs:
     steps:
       - name: Checkout code
         uses: actions/checkout@v2
+
       - name: Set up Python
         uses: actions/setup-python@v2
         with:
           python-version: '3.9'
+
       - name: Install dependencies
         run: |
           pip install ruff pip-audit
+
       - name: Run Linter
         run: ruff check . || true
+
       - name: Run Dependency Analysis
         run: pip-audit || true
+
   build:
     name: Build and Test Docker Images
     runs-on: ubuntu-latest
     needs: lint
+
     steps:
       - name: Checkout code
         uses: actions/checkout@v2
@@ -39,13 +45,16 @@ jobs:
 
       - name: Build Docker Image for Saleor API
         run: docker build -t project-saleor-api ./saleor-api
+
       - name: Build Docker Image for Saleor Dashboard
         run: docker build -t project-saleor-dashboard ./saleor-dashboard
+
       - name: Build and Start Services for Saleor Platform
         run: |
           cd saleor-platform
           docker-compose build
           docker-compose up -d
+
       - name: Health Check for Saleor API
         run: |
           docker run --rm -d -p 8001:8000 --name saleor-api project-saleor-api
@@ -59,24 +68,31 @@ jobs:
             exit 1
           fi
           docker stop saleor-api
+
       - name: Trivy Scan for Saleor API
         run: |
           docker run --rm -v /var/run/docker.sock:/var/run/docker.sock aquasec/trivy image project-saleor-api || true
+
       - name: Login to DockerHub
         run: |
           echo "${{ secrets.DOCKER_PASSWORD }}" | docker login -u "${{ secrets.DOCKER_USERNAME }}" --password-stdin
+
       - name: Build Docker Image for Saleor API and tag as latest
         run: |
           docker build -t ${{ secrets.DOCKER_USERNAME }}/project-saleor-api ./saleor-api
           docker tag project-saleor-api:latest ${{ secrets.DOCKER_USERNAME }}/project-saleor-api:latest
+
       - name: Push Saleor API to DockerHub
         run: docker push ${{ secrets.DOCKER_USERNAME }}/project-saleor-api:latest
+
       - name: Build Docker Image for Saleor dashboard and tag as latest
         run: |
           docker build -t ${{ secrets.DOCKER_USERNAME }}/project-saleor-dashboard ./saleor-dashboard
           docker tag project-saleor-dashboard:latest ${{ secrets.DOCKER_USERNAME }}/project-saleor-dashboard:latest
+
       - name: Push Saleor Dashboard to DockerHub
         run: docker push ${{ secrets.DOCKER_USERNAME }}/project-saleor-dashboard:latest
+
   staging:
     name: Staging Pipeline
     runs-on: ubuntu-latest
@@ -85,17 +101,23 @@ jobs:
     steps:
       - name: Checkout code
         uses: actions/checkout@v2
+
       - name: Validate Compose
         run: |
           docker-compose -f saleor-platform/docker-compose.yml up --abort-on-container-exit
+
       - name: Build Docker Image for Saleor API
         run: 'docker build -t project-saleor-api:staging ./saleor-api'
+
       - name: Push Saleor API to DockerHub
         run: 'docker push project-saleor-api:staging'
+
       - name: Build Docker Image for Saleor Dashboard
         run: 'docker build -t project-saleor-dashboard:staging ./saleor-dashboard'
+
       - name: Push Saleor Dashboard to DockerHub
         run: 'docker push project-saleor-dashboard:staging'
+
   production:
     name: Production Pipeline
     runs-on: ubuntu-latest
@@ -104,17 +126,22 @@ jobs:
     steps:
       - name: Checkout code
         uses: actions/checkout@v2
+
       - name: Ensure Staging Completeness
         run: echo "Ensure all tests from staging are successful"
+
       - name: Build Docker Image for Saleor API
         run: 'docker build -t project-saleor-api:production ./saleor-api'
+
       - name: Push Saleor API to DockerHub
         run: |
           docker tag project-saleor-api:production project-saleor-api:latest
           docker push project-saleor-api:production
           docker push project-saleor-api:latest
+
       - name: Build Docker Image for Saleor Dashboard
         run: 'docker build -t project-saleor-dashboard:production ./saleor-dashboard'
+        
       - name: Push Saleor Dashboard to DockerHub
         run: |
           docker tag project-saleor-dashboard:production
