@@ -48,9 +48,16 @@ jobs:
           docker-compose up -d
       - name: Health Check for Saleor API
         run: |
-          docker run -d -p 8001:8000 --name saleor-api project-saleor-api
-          sleep 60
-          curl -f http://localhost:8001/graphql || exit 1
+          docker run --rm -d -p 8001:8000 --name saleor-api project-saleor-api
+          for i in {1..30}; do
+            if curl -f http://localhost:8001/graphql; then
+            fi
+            sleep 2
+          done
+          if ! curl -f http://localhost:8001/graphql; then
+            echo "Health check failed"
+            exit 1
+          fi
           docker stop saleor-api
       - name: Trivy Scan for Saleor API
         run: >
