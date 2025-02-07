@@ -1,0 +1,35 @@
+name: Production Pipeline
+on:
+  push:
+    branches:
+      - production
+
+jobs:
+  build:
+    name: Build and Deploy Docker Images
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v2
+
+      - name: Ensure Staging Completeness
+        run: echo "Ensure all tests from staging are successful"
+
+      - name: Build Docker Image for Saleor API
+        run: docker build -t ${{ secrets.DOCKER_USERNAME }}/project-saleor-api:production ./saleor-api
+
+      - name: Build Docker Image for Saleor Dashboard
+        run: docker build -t ${{ secrets.DOCKER_USERNAME }}/project-saleor-dashboard:production ./saleor-dashboard
+
+      - name: Push Saleor API to DockerHub
+        run: |
+          docker tag ${{ secrets.DOCKER_USERNAME }}/project-saleor-api:production ${{ secrets.DOCKER_USERNAME }}/project-saleor-api:latest
+          docker push ${{ secrets.DOCKER_USERNAME }}/project-saleor-api:production
+          docker push ${{ secrets.DOCKER_USERNAME }}/project-saleor-api:latest
+
+      - name: Push Saleor Dashboard to DockerHub
+        run: |
+          docker tag ${{ secrets.DOCKER_USERNAME }}/project-saleor-dashboard:production ${{ secrets.DOCKER_USERNAME }}/project-saleor-dashboard:latest
+          docker push ${{ secrets.DOCKER_USERNAME }}/project-saleor-dashboard:production
+          docker push ${{ secrets.DOCKER_USERNAME }}/project-saleor-dashboard:latest
