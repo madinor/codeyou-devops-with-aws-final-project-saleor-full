@@ -106,4 +106,4 @@ jobs:
           aws-region: '${{ secrets.AWS_REGION }}'
       - name: Update ECS Service
         run: |
-          aws ecs update-service --cluster ${{ secrets.ECS_CLUSTER_NAME }} --service ${{ secrets.ECS_SERVICE_NAME }} --force-new-deployment
+          aws ecs update-service --cluster ${{ secrets.ECS_CLUSTER_NAME }} --service ${{ secrets.ECS_SERVICE_NAME }} --task-definition ${{ secrets.ECS_TASK_DEFINITION_NAME }} --force-new-deployment
